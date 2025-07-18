@@ -6,6 +6,7 @@ const pdfPasswords = require('../config/pdfPasswords');
 function getPasswordForFile(filename) {
   const name = filename.toLowerCase();
   for (const identifier in pdfPasswords) {
+    console.log('Printing name and identifier', name, identifier)
     if (name.includes(identifier)) {
       console.log(`Found password for identifier: ${identifier}`);
       return pdfPasswords[identifier];
