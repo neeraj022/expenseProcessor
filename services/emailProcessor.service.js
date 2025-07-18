@@ -1,16 +1,44 @@
 const pdf = require('pdf-parse');
 const { getLlmClient } = require('./llm/llm.factory');
 const { appendExpenses, getCategories } = require('./googleSheets.service');
+const pdfPasswords = require('../config/pdfPasswords');
 
-async function processPdfAttachment(fileBuffer) {
+function getPasswordForFile(filename) {
+  const name = filename.toLowerCase();
+  for (const identifier in pdfPasswords) {
+    if (name.includes(identifier)) {
+      console.log(`Found password for identifier: ${identifier}`);
+      return pdfPasswords[identifier];
+    }
+  }
+  return ''; // Return empty string for pdf-parse if no password is found
+}
+
+async function processPdfAttachment(file) {
   try {
-    console.log("Processing PDF attachment...");
-    // 1. Extract text from PDF buffer
-    const data = await pdf(fileBuffer);
+    console.log(`Processing PDF attachment: ${file.originalname}`);
+
+    // 1. Get password and extract text from PDF
+    const password = getPasswordForFile(file.originalname);
+    const options = { password };
+    
+    const data = await pdf(file.buffer, options).catch(err => {
+      if (err && err.message && err.message.toLowerCase().includes('password')) {
+        console.error(`Incorrect or missing password for ${file.originalname}. Skipping.`);
+        return null; // Indicates a password error
+      }
+      throw err; // Re-throw other errors
+    });
+
+    // If data is null, it means there was a password error.
+    if (data === null) {
+      return;
+    }
+
     const pdfText = data.text;
 
     if (!pdfText.trim()) {
-      console.log("PDF contains no text. Skipping.");
+      console.log(`PDF contains no text. Skipping ${file.originalname}.`);
       return;
     }
 
@@ -28,7 +56,7 @@ async function processPdfAttachment(fileBuffer) {
     const extractedExpenses = await llmClient.extractExpensesFromText(pdfText, categories);
 
     if (!extractedExpenses || extractedExpenses.length === 0) {
-      console.log("LLM did not find any expenses to log.");
+      console.log(`LLM did not find any expenses to log in ${file.originalname}.`);
       return;
     }
 
@@ -36,9 +64,9 @@ async function processPdfAttachment(fileBuffer) {
     console.log("Logging expenses to Google Sheets...");
     await appendExpenses(extractedExpenses);
     
-    console.log("Successfully processed and logged expenses.");
+    console.log(`Successfully processed and logged expenses for ${file.originalname}.`);
   } catch (error) {
-    console.error("Error in processing PDF attachment:", error);
+    console.error(`Error in processing PDF attachment for ${file.originalname}:`, error);
   }
 }
 

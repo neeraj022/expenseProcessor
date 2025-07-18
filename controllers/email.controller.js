@@ -21,6 +21,6 @@ exports.handleInboundEmail = async (req, res) => {
 
   // Process each PDF asynchronously
   for (const file of pdfFiles) {
-    await processPdfAttachment(file.buffer);
+    await processPdfAttachment(file);
   }
 };
