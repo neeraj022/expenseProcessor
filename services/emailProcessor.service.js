@@ -3,37 +3,45 @@ const { getLlmClient } = require('./llm/llm.factory');
 const { appendExpenses, getCategories } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
 
-function getPasswordForFile(filename) {
-  const name = filename.toLowerCase();
-  for (const identifier in pdfPasswords) {
-    console.log('Printing name and identifier', name, identifier)
-    if (name.includes(identifier.toLowerCase())) {
-      console.log(`Found password for identifier: ${identifier}`);
-      return pdfPasswords[identifier];
+function getPasswordForFile(fileName) {
+  const name = fileName.toLowerCase();
+  for (const config of pdfPasswords) {
+    for (const keyword of config.keywords) {
+      if (name.includes(keyword.toLowerCase())) {
+        console.log(`Found password config for keyword: ${keyword}`);
+        return config.password;
+      }
     }
   }
-  return ''; // Return empty string for pdf-parse if no password is found
+  return null; // Return null if no password is found
 }
 
 async function processPdfAttachment(file) {
   try {
     console.log(`Processing PDF attachment: ${file.originalname}`);
+    let data;
 
-    // 1. Get password and extract text from PDF
-    const password = getPasswordForFile(file.originalname);
-    const options = { password };
-    
-    const data = await pdf(file.buffer, options).catch(err => {
-      if (err && err.message && err.message.toLowerCase().includes('password')) {
-        console.error(`Incorrect or missing password for ${file.originalname}. Skipping.`);
-        return null; // Indicates a password error
+    // Attempt to parse without a password first for unencrypted PDFs
+    try {
+      data = await pdf(file.buffer);
+    } catch (error) {
+      // pdf-parse throws an error with this message for encrypted files
+      if (error && error.message && error.message.includes('No password given')) {
+        console.log("PDF is encrypted. Attempting to find password...");
+        const password = getPasswordForFile(file.originalname);
+
+        if (password) {
+          console.log("Found password. Retrying parsing...");
+          const options = { password };
+          data = await pdf(file.buffer, options);
+        } else {
+          console.error(`PDF ${file.originalname} is encrypted, but no password was found in config. Skipping.`);
+          return; // Skip this file
+        }
+      } else {
+        // It's some other parsing error, re-throw it to be caught by the outer block
+        throw error;
       }
-      throw err; // Re-throw other errors
-    });
-
-    // If data is null, it means there was a password error.
-    if (data === null) {
-      return;
     }
 
     const pdfText = data.text;
@@ -67,7 +75,8 @@ async function processPdfAttachment(file) {
     
     console.log(`Successfully processed and logged expenses for ${file.originalname}.`);
   } catch (error) {
-    console.error(`Error in processing PDF attachment for ${file.originalname}:`, error);
+    // This will catch incorrect passwords ("Invalid password") or other unexpected errors
+    console.error(`Error in processing PDF attachment for ${file.originalname}:`, error.message);
   }
 }
 
