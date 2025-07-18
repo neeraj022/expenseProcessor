@@ -36,9 +36,9 @@ async function processPdfAttachment(file) {
         if (password) {
           try {
             console.log("Found password. Retrying with password...");
-            pdfDoc = await PDFDocument.load(file.buffer, { password });
+            pdfDoc = await PDFDocument.load(file.buffer, {ignoreEncryption: true, password});
           } catch (passwordError) {
-            console.error(`Failed to decrypt ${file.originalname}. The password may be incorrect. Skipping.`);
+            console.error(`Failed to decrypt ${file.originalname}. The password may be incorrect. Skipping.`, passwordError);
             return; // Skip file if password is wrong
           }
         } else {
