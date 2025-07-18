@@ -28,8 +28,8 @@ async function processPdfAttachment(file) {
       // Attempt to load without a password
       pdfDoc = await PDFDocument.load(file.buffer);
     } catch (error) {
-      // pdf-lib throws EncryptedPDFError if a password is required
-      if (error.name === 'EncryptedPDFError') {
+      // Check if the PDF is encrypted by looking at the error name or message
+      if (error.name === 'EncryptedPDFError' || (error.message && error.message.includes('encrypted'))) {
         console.log(`PDF ${file.originalname} is encrypted. Attempting to find password...`);
         const password = getPasswordForFile(file.originalname);
 
