@@ -32,9 +32,41 @@ class GeminiClient extends LLMClient {
     const result = await this.model.generateContent(prompt);
     const response = await result.response;
     const responseText = response.text();
-    const content = JSON.parse(responseText);
+
+    let content;
+    try {
+      content = JSON.parse(responseText);
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        console.error("Failed to parse JSON, attempting to repair...", error.message);
+        const repairedJsonText = await this._repairJson(responseText);
+        content = JSON.parse(repairedJsonText);
+      } else {
+        throw error;
+      }
+    }
+
     // The model might return a root object with an "expenses" key, so handle that.
     return content.expenses || content;
+  }
+
+  async _repairJson(malformedJson) {
+    console.log("Attempting to repair malformed JSON...");
+    const prompt = `
+          The following string is a malformed JSON. Please fix it and return only the valid JSON object.
+          Do not add any explanations or introductory text. Just return the corrected JSON.
+    
+          Malformed JSON:
+          ---
+          ${malformedJson}
+          ---
+        `;
+
+    const result = await this.model.generateContent(prompt);
+    const response = await result.response;
+    const repairedJsonText = response.text();
+    console.log("JSON repair attempt finished.");
+    return repairedJsonText;
   }
 }
 
