@@ -1,4 +1,5 @@
-const pdf = require('pdf-parse');
+const pdfParse = require('pdf-parse');
+const { PDFDocument } = require('pdf-lib');
 const { getLlmClient } = require('./llm/llm.factory');
 const { appendExpenses, getCategories } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
@@ -20,29 +21,41 @@ async function processPdfAttachment(file) {
   try {
     console.log(`Processing PDF attachment: ${file.originalname}`);
     let data;
+    let pdfDoc;
 
-    // Attempt to parse without a password first for unencrypted PDFs
+    // Use pdf-lib to load and decrypt the PDF if necessary
     try {
-      data = await pdf(file.buffer);
+      // Attempt to load without a password
+      pdfDoc = await PDFDocument.load(file.buffer);
     } catch (error) {
-      // pdf-parse throws an error with this message for encrypted files
-      if (error && error.message && error.message.includes('No password given')) {
-        console.log("PDF is encrypted. Attempting to find password...");
+      // pdf-lib throws EncryptedPDFError if a password is required
+      if (error.name === 'EncryptedPDFError') {
+        console.log(`PDF ${file.originalname} is encrypted. Attempting to find password...`);
         const password = getPasswordForFile(file.originalname);
 
         if (password) {
-          console.log("Found password. Retrying parsing...");
-          const options = { password };
-          data = await pdf(file.buffer, options);
+          try {
+            console.log("Found password. Retrying with password...");
+            pdfDoc = await PDFDocument.load(file.buffer, { password });
+          } catch (passwordError) {
+            console.error(`Failed to decrypt ${file.originalname}. The password may be incorrect. Skipping.`);
+            return; // Skip file if password is wrong
+          }
         } else {
           console.error(`PDF ${file.originalname} is encrypted, but no password was found in config. Skipping.`);
-          return; // Skip this file
+          return;
         }
       } else {
-        // It's some other parsing error, re-throw it to be caught by the outer block
+        // It's some other PDF loading error, re-throw it
         throw error;
       }
     }
+
+    // Save the (now decrypted) document to a new buffer
+    const decryptedPdfBytes = await pdfDoc.save();
+
+    // Use pdf-parse to extract text from the decrypted buffer
+    data = await pdfParse(decryptedPdfBytes);
 
     const pdfText = data.text;
 
@@ -75,7 +88,7 @@ async function processPdfAttachment(file) {
     
     console.log(`Successfully processed and logged expenses for ${file.originalname}.`);
   } catch (error) {
-    // This will catch incorrect passwords ("Invalid password") or other unexpected errors
+    // This will catch any unexpected errors during processing
     console.error(`Error in processing PDF attachment for ${file.originalname}:`, error.message);
   }
 }
