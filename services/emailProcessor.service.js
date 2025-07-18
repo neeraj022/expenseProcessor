@@ -1,6 +1,6 @@
 const pdf = require('pdf-parse');
 const { getLlmClient } = require('./llm/llm.factory');
-const { appendExpenses } = require('./googleSheets.service');
+const { appendExpenses, getCategories } = require('./googleSheets.service');
 
 async function processPdfAttachment(fileBuffer) {
   try {
@@ -14,17 +14,25 @@ async function processPdfAttachment(fileBuffer) {
       return;
     }
 
-    // 2. Get LLM client and extract expenses
+    // 2. Get categories from Google Sheet
+    console.log("Fetching categories from Google Sheet...");
+    const categories = await getCategories();
+    if (!categories || categories.length === 0) {
+      console.log("No categories found in sheet. Aborting.");
+      return;
+    }
+
+    // 3. Get LLM client and extract expenses
     console.log("Extracting expenses with LLM...");
     const llmClient = getLlmClient();
-    const extractedExpenses = await llmClient.extractExpensesFromText(pdfText);
+    const extractedExpenses = await llmClient.extractExpensesFromText(pdfText, categories);
 
     if (!extractedExpenses || extractedExpenses.length === 0) {
       console.log("LLM did not find any expenses to log.");
       return;
     }
 
-    // 3. Append to Google Sheets
+    // 4. Append to Google Sheets
     console.log("Logging expenses to Google Sheets...");
     await appendExpenses(extractedExpenses);
     
