@@ -1,6 +1,5 @@
 const { google } = require('googleapis');
 const path = require('path');
-const { authenticate } = require('@google-cloud/local-auth');
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const CREDENTIALS_PATH = path.join(process.cwd(), process.env.GOOGLE_CREDENTIALS_PATH);
@@ -9,9 +8,9 @@ let authClient;
 
 async function getAuthClient() {
   if (authClient) return authClient;
-  authClient = await authenticate({
-    scopes: SCOPES,
-    keyfilePath: CREDENTIALS_PATH,
+   authClient = new google.auth.GoogleAuth({                                                                         
+    scopes: SCOPES,                                                                                                 
+    keyFile: CREDENTIALS_PATH,                                                                                      
   });
   return authClient;
 }
@@ -24,7 +23,7 @@ async function appendExpenses(expenses) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Sheet1!A:E', // Adjust sheet name and range as needed
+    range: 'API_TEST!A:E', // Adjust sheet name and range as needed
     valueInputOption: 'USER_ENTERED',
     resource: {
       values,
