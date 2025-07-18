@@ -7,7 +7,7 @@ function getPasswordForFile(filename) {
   const name = filename.toLowerCase();
   for (const identifier in pdfPasswords) {
     console.log('Printing name and identifier', name, identifier)
-    if (name.includes(identifier)) {
+    if (name.includes(identifier.toLowerCase())) {
       console.log(`Found password for identifier: ${identifier}`);
       return pdfPasswords[identifier];
     }
