@@ -1,5 +1,4 @@
-const pdfParse = require('pdf-parse');
-const { Recipe } = require('hummus-recipe');
+const pdfjs = require('pdfjs-dist/legacy/build/pdf.js');
 const { getLlmClient } = require('./llm/llm.factory');
 const { appendExpenses, getCategories } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
@@ -17,42 +16,53 @@ function getPasswordForFile(fileName) {
   return null; // Return null if no password is found
 }
 
+async function extractTextFromPdf(doc) {
+  let fullText = '';
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ');
+    fullText += pageText + '\n';
+  }
+  return fullText;
+}
+
 async function processPdfAttachment(file) {
   try {
     console.log(`Processing PDF attachment: ${file.originalname}`);
     let pdfText;
+    const pdfData = new Uint8Array(file.buffer);
+    let doc;
 
     try {
-      // First attempt: parse directly, for unencrypted PDFs
-      const data = await pdfParse(file.buffer);
-      pdfText = data.text;
+      // First attempt: load without password
+      doc = await pdfjs.getDocument({ data: pdfData }).promise;
     } catch (error) {
-      // If initial parsing fails, assume encryption and try to decrypt with hummus-recipe
-      console.log(`Initial parsing failed for ${file.originalname}, attempting decryption...`);
-      const password = getPasswordForFile(file.originalname);
-
-      if (password) {
-        console.log("Found password, using hummus-recipe to decrypt...");
-        try {
-          // Create a new PDF in memory by re-saving the encrypted one with the password
-          const recipe = new Recipe(file.buffer, null, { password });
-          recipe.endPDF(); // This finalizes the new PDF buffer
-          const decryptedPdfBuffer = recipe.toBuffer();
-
-          // Now parse the new, decrypted buffer
-          const data = await pdfParse(decryptedPdfBuffer);
-          pdfText = data.text;
-        } catch (hummusError) {
-          console.error(`Hummus-recipe failed for ${file.originalname}. The password may be incorrect.`, hummusError.message);
-          return; // Skip this file
+      // pdf.js throws an exception with name 'PasswordException' for encrypted files
+      if (error.name === 'PasswordException') {
+        console.log(`PDF ${file.originalname} is encrypted. Attempting to find password...`);
+        const password = getPasswordForFile(file.originalname);
+        if (password) {
+          try {
+            console.log("Found password, retrying with password...");
+            doc = await pdfjs.getDocument({ data: pdfData, password: password }).promise;
+          } catch (passwordError) {
+            console.error(`Failed to load ${file.originalname} with password. The password may be incorrect.`);
+            return; // Skip file if password is wrong
+          }
+        } else {
+          console.error(`PDF ${file.originalname} is encrypted, but no password was found. Skipping.`);
+          return;
         }
       } else {
-        console.error(`PDF ${file.originalname} appears to be encrypted, but no password was found. Skipping.`);
-        return;
+        console.error(`Failed to load PDF ${file.originalname}:`, error.message);
+        return; // Some other error
       }
     }
+    
+    pdfText = await extractTextFromPdf(doc);
 
-    if (!pdfText || !pdfText.trim()) {
+    if (!pdfText.trim()) {
       console.log(`PDF contains no text. Skipping ${file.originalname}.`);
       return;
     }
