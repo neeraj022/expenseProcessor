@@ -1,4 +1,4 @@
-const pdfjs = require('pdfjs-dist/legacy/build/pdf.js');
+const pdfParse = require('pdf-parse');
 const { getLlmClient } = require('./llm/llm.factory');
 const { appendExpenses, getCategories } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
@@ -16,38 +16,29 @@ function getPasswordForFile(fileName) {
   return null; // Return null if no password is found
 }
 
-async function extractTextFromPdf(doc) {
-  let fullText = '';
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items.map(item => item.str).join(' ');
-    fullText += pageText + '\n';
-  }
-  return fullText;
-}
-
 async function processPdfAttachment(file) {
   try {
     console.log(`Processing PDF attachment: ${file.originalname}`);
     let pdfText;
-    const pdfData = new Uint8Array(file.buffer);
-    let doc;
 
     try {
-      // First attempt: load without password
-      doc = await pdfjs.getDocument({ data: pdfData }).promise;
+      // First attempt: parse without password
+      const data = await pdfParse(file.buffer);
+      pdfText = data.text;
     } catch (error) {
-      // pdf.js throws an exception with name 'PasswordException' for encrypted files
-      if (error.name === 'PasswordException') {
+      // pdf-parse error for encrypted files often includes "encrypted"
+      if (error.message.toLowerCase().includes('encrypted')) {
         console.log(`PDF ${file.originalname} is encrypted. Attempting to find password...`);
         const password = getPasswordForFile(file.originalname);
+
         if (password) {
           try {
             console.log("Found password, retrying with password...");
-            doc = await pdfjs.getDocument({ data: pdfData, password: password }).promise;
+            const options = { password };
+            const data = await pdfParse(file.buffer, options);
+            pdfText = data.text;
           } catch (passwordError) {
-            console.error(`Failed to load ${file.originalname} with password. The password may be incorrect.`);
+            console.error(`Failed to parse ${file.originalname} with password. The password may be incorrect.`);
             return; // Skip file if password is wrong
           }
         } else {
@@ -55,12 +46,11 @@ async function processPdfAttachment(file) {
           return;
         }
       } else {
-        console.error(`Failed to load PDF ${file.originalname}:`, error.message);
-        return; // Some other error
+        // Some other parsing error
+        console.error(`Failed to parse PDF ${file.originalname}:`, error.message);
+        return;
       }
     }
-    
-    pdfText = await extractTextFromPdf(doc);
 
     if (!pdfText.trim()) {
       console.log(`PDF contains no text. Skipping ${file.originalname}.`);
