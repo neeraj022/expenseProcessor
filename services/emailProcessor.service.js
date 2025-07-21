@@ -1,4 +1,5 @@
 const pdfParse = require('pdf-parse');
+const qpdf = require('node-qpdf');
 const { getLlmClient } = require('./llm/llm.factory');
 const { appendExpenses, getCategories } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
@@ -22,24 +23,36 @@ async function processPdfAttachment(file) {
     let pdfText;
 
     try {
-      // First attempt: parse without password
+      // First attempt: parse without password to handle non-encrypted files
       const data = await pdfParse(file.buffer);
       pdfText = data.text;
     } catch (error) {
-      // pdf-parse error for encrypted files often includes "encrypted"
-      if (error.message.toLowerCase().includes('encrypted') || error.message.toLowerCase().includes('password')) {
-        console.log(`PDF ${file.originalname} is encrypted. Attempting to find password...`);
+      // pdf-parse throws error with code 1 for encrypted files
+      if (error.code === 1) { 
+        console.log(`PDF ${file.originalname} is encrypted. Attempting to decrypt with qpdf...`);
         const password = getPasswordForFile(file.originalname);
 
         if (password) {
           try {
-            console.log("Found password, retrying with password...");
-            const options = { password };
-            const data = await pdfParse(file.buffer, options);
+            console.log("Found password, attempting decryption...");
+
+            // We wrap qpdf's callback-based decrypt method in a Promise
+            const decryptedBuffer = await new Promise((resolve, reject) => {
+              qpdf.decrypt({ input: file.buffer, password }, (err, dataBuffer) => {
+                if (err) {
+                  return reject(err); // This will trigger the catch block below
+                }
+                resolve(dataBuffer);
+              });
+            });
+
+            console.log("PDF decrypted successfully. Parsing text from decrypted buffer...");
+            const data = await pdfParse(decryptedBuffer);
             pdfText = data.text;
-          } catch (passwordError) {
-            console.error(`Failed to parse ${file.originalname} with password. The password may be incorrect.`, passwordError);
-            return; // Skip file if password is wrong
+
+          } catch (decryptionError) {
+            console.error(`Failed to decrypt ${file.originalname} with qpdf. The password may be incorrect.`, decryptionError);
+            return; // Skip file if decryption fails
           }
         } else {
           console.error(`PDF ${file.originalname} is encrypted, but no password was found. Skipping.`);
@@ -52,7 +65,7 @@ async function processPdfAttachment(file) {
       }
     }
 
-    if (!pdfText.trim()) {
+    if (!pdfText || !pdfText.trim()) {
       console.log(`PDF contains no text. Skipping ${file.originalname}.`);
       return;
     }
