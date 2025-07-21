@@ -9,7 +9,7 @@ function getPasswordForFile(fileName) {
     for (const keyword of config.keywords) {
       if (name.includes(keyword.toLowerCase())) {
         console.log(`Found password config for keyword: ${keyword}`);
-        return config.password;
+        return String(config.password);
       }
     }
   }
@@ -27,7 +27,7 @@ async function processPdfAttachment(file) {
       pdfText = data.text;
     } catch (error) {
       // pdf-parse error for encrypted files often includes "encrypted"
-      if (error.message.toLowerCase().includes('encrypted')) {
+      if (error.message.toLowerCase().includes('encrypted') || error.message.toLowerCase().includes('password')) {
         console.log(`PDF ${file.originalname} is encrypted. Attempting to find password...`);
         const password = getPasswordForFile(file.originalname);
 
@@ -38,7 +38,7 @@ async function processPdfAttachment(file) {
             const data = await pdfParse(file.buffer, options);
             pdfText = data.text;
           } catch (passwordError) {
-            console.error(`Failed to parse ${file.originalname} with password. The password may be incorrect.`);
+            console.error(`Failed to parse ${file.originalname} with password. The password may be incorrect.`, passwordError);
             return; // Skip file if password is wrong
           }
         } else {
