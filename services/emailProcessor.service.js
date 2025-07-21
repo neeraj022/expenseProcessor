@@ -1,5 +1,6 @@
 const pdfParse = require('pdf-parse');
 const qpdf = require('node-qpdf');
+const { Readable } = require('stream');
 const { getLlmClient } = require('./llm/llm.factory');
 const { appendExpenses, getCategories } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
@@ -36,9 +37,12 @@ async function processPdfAttachment(file) {
           try {
             console.log("Found password, attempting decryption...");
 
-            // We wrap qpdf's callback-based decrypt method in a Promise
+            // Create a readable stream from the buffer
+            const inputStream = Readable.from(file.buffer);
+
             const decryptedBuffer = await new Promise((resolve, reject) => {
-              qpdf.decrypt({ input: file.buffer, password }, (err, dataBuffer) => {
+              // Pass the stream as 'inputStream'
+              qpdf.decrypt({ inputStream, password }, (err, dataBuffer) => {
                 if (err) {
                   return reject(err); // This will trigger the catch block below
                 }
