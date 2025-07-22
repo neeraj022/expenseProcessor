@@ -1,6 +1,8 @@
 const pdfParse = require('pdf-parse');
-const qpdf = require('node-qpdf');
-const { Readable } = require('stream');
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const { getLlmClient } = require('./llm/llm.factory');
 const { appendExpenses, getCategories } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
@@ -34,29 +36,32 @@ async function processPdfAttachment(file) {
         const password = getPasswordForFile(file.originalname);
 
         if (password) {
+          let tempDir;
           try {
-            console.log("Found password, attempting decryption...");
+            console.log("Found password, attempting decryption with command-line qpdf...");
+            tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-'));
+            const inputPath = path.join(tempDir, file.originalname);
+            const outputPath = path.join(tempDir, `decrypted-${file.originalname}`);
 
-            // Create a readable stream from the buffer
-            const inputStream = Readable.from(file.buffer);
+            fs.writeFileSync(inputPath, file.buffer);
 
-            const decryptedBuffer = await new Promise((resolve, reject) => {
-              // Pass the stream as 'inputStream'
-              qpdf.decrypt({ inputStream, password }, (err, dataBuffer) => {
-                if (err) {
-                  return reject(err); // This will trigger the catch block below
-                }
-                resolve(dataBuffer);
-              });
-            });
+            // Note: This requires the qpdf command-line tool to be installed and in the system's PATH.
+            execSync(`qpdf --password=${password} --decrypt "${inputPath}" "${outputPath}"`);
 
             console.log("PDF decrypted successfully. Parsing text from decrypted buffer...");
+            const decryptedBuffer = fs.readFileSync(outputPath);
             const data = await pdfParse(decryptedBuffer);
             pdfText = data.text;
 
           } catch (decryptionError) {
-            console.error(`Failed to decrypt ${file.originalname} with qpdf. The password may be incorrect.`, decryptionError);
+            console.error(`Failed to decrypt ${file.originalname} with qpdf CLI. The password may be incorrect or qpdf is not installed in the system's PATH.`, decryptionError);
             return; // Skip file if decryption fails
+          } finally {
+            // Clean up temp files
+            if (tempDir && fs.existsSync(tempDir)) {
+              fs.rmSync(tempDir, { recursive: true, force: true });
+              console.log("Cleaned up temporary files.");
+            }
           }
         } else {
           console.error(`PDF ${file.originalname} is encrypted, but no password was found. Skipping.`);
