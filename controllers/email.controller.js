@@ -9,9 +9,11 @@ exports.handleInboundEmail = async (req, res) => {
     return res.status(400).send("No attachments found.");
   }
 
-  const pdfFiles = req.files.filter(
-    (file) => file.mimetype === 'application/pdf'
-  );
+ const pdfFiles = req.files.filter(
+  (file) =>
+    file.mimetype === 'application/pdf' ||
+    file.originalname.toLowerCase().endsWith('.pdf')
+);
 
   if (pdfFiles.length === 0) {
     console.log("No PDF attachments found.");
