@@ -1,16 +1,20 @@
 const { google } = require('googleapis');
-const path = require('path');
-
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-const CREDENTIALS_PATH = path.join(process.cwd(), process.env.GOOGLE_CREDENTIALS_PATH);
 
 let authClient;
 
 async function getAuthClient() {
   if (authClient) return authClient;
-   authClient = new google.auth.GoogleAuth({                                                                         
-    scopes: SCOPES,                                                                                                 
-    keyFile: CREDENTIALS_PATH,                                                                                      
+
+  if (!process.env.GOOGLE_CREDENTIALS) {
+    throw new Error('GOOGLE_CREDENTIALS environment variable not set.');
+  }
+
+  const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+
+  authClient = new google.auth.GoogleAuth({
+    scopes: SCOPES,
+    credentials,
   });
   return authClient;
 }
