@@ -5,10 +5,18 @@ const emailController = require('../controllers/email.controller');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// This route will be used by your email forwarding service (e.g., SendGrid, Mailgun)
 router.post(
   '/inbound',
-  upload.any(), // .any() is flexible for various multipart field names
+  (req, res, next) => {
+    console.log('[ROUTE] /inbound hit!');
+    next();
+  },
+  upload.any(),
+  (req, res, next) => {
+    console.log(`[UPLOAD] Files received: ${req.files?.length}`);
+    console.log(`[BODY] Raw body:`, req.body);
+    next();
+  },
   emailController.handleInboundEmail
 );
 
