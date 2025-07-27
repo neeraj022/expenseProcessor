@@ -8,7 +8,7 @@ const { appendExpenses, getCategories } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
 
 function getPasswordForFile(fileName) {
-  console.log('Searching for password for file:', fileName, pdfPasswords, process.env);
+  console.log('Searching for password for file:', fileName);
   const name = fileName.toLowerCase();
   for (const config of pdfPasswords) {
     for (const keyword of config.keywords) {
