@@ -40,7 +40,7 @@ async function appendExpenses(expenses) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'API_TEST!B:F', //'Expenses!B:F', // Adjust sheet name and range as needed
+    range: 'Expenses!B:F', // Adjust sheet name and range as needed
     valueInputOption: 'USER_ENTERED',
     resource: {
       values,
