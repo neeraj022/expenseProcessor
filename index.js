@@ -10,7 +10,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/email', emailRoutes);
 
-app.get('/', (req, res) => {
+app.get('/health', (req, res) => {
   res.send('Expense Tracker Email Processor is running.');
 });
 

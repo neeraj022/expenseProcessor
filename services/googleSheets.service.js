@@ -21,7 +21,7 @@ async function getCategories() {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Category Setup!B3:B',
+    range: 'Category Setup!B3:B40',
   });
 
   const values = response.data.values;
@@ -30,17 +30,17 @@ async function getCategories() {
     return values.map(row => row[0]).filter(Boolean);
   }
   return [];
-}
+}  
 
 async function appendExpenses(expenses) {
   const auth = await getAuthClient();
   const sheets = google.sheets({ version: 'v4', auth });
 
-  const values = expenses.map(e => [e.date, e.description, e.amount, e.type, e.category]);
+  const values = expenses.map(e => [e.date, e.description, e.amount, e.category, e.type]);
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'API_TEST!A:E', // Adjust sheet name and range as needed
+    range: 'API_TEST!B:F', //'Expenses!B:F', // Adjust sheet name and range as needed
     valueInputOption: 'USER_ENTERED',
     resource: {
       values,
