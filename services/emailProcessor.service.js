@@ -97,9 +97,26 @@ async function processPdfAttachment(file) {
       return;
     }
 
+    const today = new Date().toLocaleDateString();
+    const expensesToLog = extractedExpenses.map(expense => {
+      // Make amount negative for credits
+      const amount = expense.type && expense.type.toLowerCase() === 'credit' 
+        ? -Math.abs(expense.amount) 
+        : expense.amount;
+      
+      // Combine metadata into a notes string
+      const notes = `Appended on: ${today}, File: ${file.originalname}, Type: ${expense.type}`;
+
+      return {
+        ...expense,
+        amount,
+        notes,
+      };
+    });
+
     // 4. Append to Google Sheets
     console.log("Logging expenses to Google Sheets...");
-    await appendExpenses(extractedExpenses);
+    await appendExpenses(expensesToLog);
     
     console.log(`Successfully processed and logged expenses for ${file.originalname}.`);
   } catch (error) {
