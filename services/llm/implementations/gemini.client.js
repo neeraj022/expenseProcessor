@@ -21,6 +21,7 @@ class GeminiClient extends LLMClient {
     const prompt = `
           Analyze the following financial statement text and extract all expense and income transactions.
           Format the output as a JSON object. The JSON object should have a single key, "expenses", which contains an array of objects. Each object should have these exact keys: "date", "description", "amount", "type" (either "debit" or "credit"), and "category".
+          The "date" must be in "MM/DD/YYYY" format.
           The "category" MUST be one of the following values: [${validCategories}].
           If a value is not present, use null.
           Text:
@@ -47,7 +48,19 @@ class GeminiClient extends LLMClient {
     }
 
     // The model might return a root object with an "expenses" key, so handle that.
-    return content.expenses || content;
+    const expenses = content.expenses || content;
+
+    // Format date from MM-DD-YYYY to MM/DD/YYYY
+    if (Array.isArray(expenses)) {
+      expenses.forEach(expense => {
+        if (expense.date && typeof expense.date === 'string') {
+          // Replaces all hyphens with slashes
+          expense.date = expense.date.replace(/-/g, '/');
+        }
+      });
+    }
+
+    return expenses;
   }
 
   async _repairJson(malformedJson) {
