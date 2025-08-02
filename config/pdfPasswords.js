@@ -24,6 +24,10 @@ module.exports = [
     password: process.env.PDF_PASSWORD_CREDIT_SBI,
   },
   {
+    keywords: ['sbiBankNeeraj'],
+    password: process.env.PDF_PASSWORD_BANK_NEERAJ_SBI,
+  },
+  {
     keywords: ['sbiBank'],
     password: process.env.PDF_PASSWORD_BANK_SBI,
   },
