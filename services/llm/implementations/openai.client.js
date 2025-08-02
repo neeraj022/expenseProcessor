@@ -14,6 +14,7 @@ class OpenAIClient extends LLMClient {
     const prompt = `
           Analyze the following financial statement text and extract all expense and income transactions.
           Format the output as a JSON array of objects. Each object should have these exact keys: "date", "description", "amount", "type" (either "debit" or "credit"), and "category".
+          The "date" must be in "MM/DD/YYYY" format.
           The "category" must be one of the following values: [${validCategories}].
           If a value is not present, use null.
           Text:
@@ -29,9 +30,21 @@ class OpenAIClient extends LLMClient {
     });
 
     const content = response.choices[0].message.content;
-    // The model might return a root object with an "expenses" key, so handle that.
     const result = JSON.parse(content);
-    return result.expenses || result;
+    // The model might return a root object with an "expenses" key, so handle that.
+    const expenses = result.expenses || result;
+
+    // Format date from MM-DD-YYYY to MM/DD/YYYY
+    if (Array.isArray(expenses)) {
+      expenses.forEach(expense => {
+        if (expense.date && typeof expense.date === 'string') {
+          // Replaces all hyphens with slashes
+          expense.date = expense.date.replace(/-/g, '/');
+        }
+      });
+    }
+
+    return expenses;
   }
 }
 
