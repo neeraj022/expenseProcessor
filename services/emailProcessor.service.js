@@ -46,8 +46,21 @@ async function processPdfAttachment(file) {
 
             fs.writeFileSync(inputPath, file.buffer);
 
-            // Note: This requires the qpdf command-line tool to be installed and in the system's PATH.
-            execSync(`qpdf --password=${password} --decrypt "${inputPath}" "${outputPath}"`);
+            try {
+              // Try qpdf decryption, even if it emits warnings
+              execSync(`qpdf --password=${password} --decrypt "${inputPath}" "${outputPath}"`);
+            } catch (error) {
+              const stderr = error.stderr?.toString() || '';
+              if (error.status === 3 && stderr.includes('WARNING')) {
+                console.warn(`qpdf succeeded with warning: ${stderr}`);
+                if (!fs.existsSync(outputPath)) {
+                  console.error(`Decrypted output file not found despite qpdf warning.`);
+                  return;
+                }
+              } else {
+                throw error; // Re-throw real errors
+              }
+            }
 
             console.log("PDF decrypted successfully. Parsing text from decrypted buffer...");
             const decryptedBuffer = fs.readFileSync(outputPath);
@@ -55,7 +68,7 @@ async function processPdfAttachment(file) {
             pdfText = data.text;
 
           } catch (decryptionError) {
-            console.error(`Failed to decrypt ${file.originalname} with qpdf CLI. The password may be incorrect or qpdf is not installed in the system's PATH.`, decryptionError);
+            console.error(`Failed to decrypt ${file.originalname} with qpdf CLI.`, decryptionError);
             return; // Skip file if decryption fails
           } finally {
             // Clean up temp files
