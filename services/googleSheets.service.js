@@ -40,11 +40,11 @@ async function appendExpenses(expenses) {
   const auth = await getAuthClient();
   const sheets = google.sheets({ version: 'v4', auth });
 
-  const values = expenses.map(e => [e.date, e.description, e.amount, e.category, e.notes]);
+  const values = expenses.map(e => [e.date, e.description, e.amount, e.category, e.fileName, e.appendedDate, e.expenseType]);
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: 'Expenses!B:F', // Adjust sheet name and range as needed
+    range: 'Expenses!B:H', // Adjust sheet name and range as needed
     valueInputOption: 'USER_ENTERED',
     resource: {
       values,

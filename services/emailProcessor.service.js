@@ -104,14 +104,13 @@ async function processPdfAttachment(file) {
       const amount = expense.type && expense.type.toLowerCase() === 'credit' 
         ? -Math.abs(expense.amount) 
         : expense.amount;
-      
-      // Combine metadata into a notes string
-      const notes = `Appended on: ${today}, File: ${file.originalname}, Type: ${expense.type}`;
 
       return {
         ...expense,
         amount,
-        notes,
+        fileName: file.originalname,
+        appendedDate: today,
+        expenseType: expense.type,
       };
     });
 
