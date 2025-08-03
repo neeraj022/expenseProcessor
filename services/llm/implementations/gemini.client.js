@@ -15,7 +15,21 @@ class GeminiClient extends LLMClient {
       },
     });
   }
+//Items to be ignored:
+// Credit cards
+//SI Payment Recieved ,Thank You IDFC
+//RAZORPAY PAYMENT MOBILEAPP- API BOB
+//NACH PAYMENT RECEIVED 
+//INFINITY PAYMENT RECEIVED, THANK YOU
+//Autodebit Payment Recd.
+//BANKS
+//Payment towards card ending with
 
+//INCOME IDENTIFICATIONS
+//INCOME - MOBILE BANKING MMT/IMPS/517900579820/RDA Vostro FIR /NIUM PTE L/HDFC Bank
+
+//EXPENSE HINTS
+//Namma driver - Services
   async extractExpensesFromText(text, categories) {
     const validCategories = categories.join(', ');
     const prompt = `
@@ -24,6 +38,8 @@ class GeminiClient extends LLMClient {
           The "date" must be in "MM/DD/YYYY" format.
           The "category" MUST be one of the following values: [${validCategories}].
           If a value is not present, use null.
+          Sometimes the reward point column is also present next to the amount column, but it should not be considered in the output.
+          Amount can't be larger than 1000000.
           Text:
           ---
           ${text}
