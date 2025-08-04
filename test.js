@@ -24,7 +24,21 @@ async function runTest() {
     fs.writeFileSync(inputPath, file.buffer);
 
     // Decrypt the PDF using qpdf
-    execSync(`qpdf --password=${password} --decrypt "${inputPath}" "${outputPath}"`);
+    try {
+        // Try qpdf decryption, even if it emits warnings
+        execSync(`qpdf --password=${password} --decrypt "${inputPath}" "${outputPath}"`);
+    } catch (error) {
+        const stderr = error.stderr?.toString() || '';
+        if (error.status === 3 && stderr.includes('WARNING')) {
+        console.warn(`qpdf succeeded with warning: ${stderr}`);
+        if (!fs.existsSync(outputPath)) {
+            console.error(`Decrypted output file not found despite qpdf warning.`);
+            return;
+        }
+        } else {
+        throw error; // Re-throw real errors
+        }
+    }
 
     const decryptedBuffer = fs.readFileSync(outputPath);
     const data = await pdfParse(decryptedBuffer);
