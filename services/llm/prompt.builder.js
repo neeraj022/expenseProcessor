@@ -7,10 +7,10 @@ function buildExtractionPrompt(text, categories) {
         The "date" must be in "MM/DD/YYYY" format.
         The "category" MUST be one of the following values: [${validCategories}].
         "debit" represents money spent or transferred out. "credit" represents money received or returned.
-        On bank statements, credits are often income. Income descriptions may include 'RDA Vostro FIR', 'NIUM PTE L', 'dividend', 'Uengage', or 'INDOFAST SWAP EN'.
+        On bank statements, credits are often income. Income descriptions may include 'RDA Vostro FIR NIUM PTE L', 'dividend', 'Uengage', or 'INDOFAST SWAP EN'.
         On credit card statements, credits can be payments (e.g., "Payment Received, Thank You") or refunds. Extract both.
         If a value is not present, use null.
-        Sometimes the reward point column is also present next to the amount column, but it should not be considered in the output.
+        Sometimes the reward point column is also present next to the amount column, but it should not be considered in the output amount.
         Amount can't be larger than 1000000.
         Text:
         ---
