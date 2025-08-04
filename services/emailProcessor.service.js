@@ -4,27 +4,28 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { getLlmClient } = require('./llm/llm.factory');
-const { appendExpenses, getCategories } = require('./googleSheets.service');
+const { appendExpenses, getCategories, appendIncome } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
 
-function getPasswordForFile(fileName) {
-  console.log('Searching for password for file:', fileName);
+function getConfigForFile(fileName) {
+  console.log('Searching for config for file:', fileName);
   const name = fileName.toLowerCase();
   for (const config of pdfPasswords) {
     for (const keyword of config.keywords) {
       if (name.includes(keyword.toLowerCase())) {
-        console.log(`Found password config for keyword: ${keyword}`);
-        return String(config.password);
+        console.log(`Found config for keyword: ${keyword}`);
+        return config;
       }
     }
   }
-  return null; // Return null if no password is found
+  return null; // Return null if no config is found
 }
 
 async function processPdfAttachment(file) {
   try {
     console.log(`Processing PDF attachment: ${file.originalname}`);
     let pdfText;
+    const pdfConfig = getConfigForFile(file.originalname);
 
     try {
       // First attempt: parse without password to handle non-encrypted files
@@ -34,7 +35,7 @@ async function processPdfAttachment(file) {
       // pdf-parse throws error with code 1 for encrypted files
       if (error.code === 1) { 
         console.log(`PDF ${file.originalname} is encrypted. Attempting to decrypt with qpdf...`);
-        const password = getPasswordForFile(file.originalname);
+        const password = pdfConfig ? String(pdfConfig.password) : null;
 
         if (password) {
           let tempDir;
@@ -101,37 +102,91 @@ async function processPdfAttachment(file) {
       return;
     }
 
-    // 3. Get LLM client and extract expenses
-    console.log("Extracting expenses with LLM...");
+    // 3. Get LLM client and extract transactions
+    console.log("Extracting transactions with LLM...");
     const llmClient = getLlmClient();
-    const extractedExpenses = await llmClient.extractExpensesFromText(pdfText, categories);
+    const extractedTransactions = await llmClient.extractExpensesFromText(pdfText, categories);
 
-    if (!extractedExpenses || extractedExpenses.length === 0) {
-      console.log(`LLM did not find any expenses to log in ${file.originalname}.`);
+    if (!extractedTransactions || extractedTransactions.length === 0) {
+      console.log(`LLM did not find any transactions to log in ${file.originalname}.`);
       return;
     }
 
-    const today = new Date().toLocaleDateString();
-    const expensesToLog = extractedExpenses.map(expense => {
-      // Make amount negative for credits
-      const amount = expense.type && expense.type.toLowerCase() === 'credit' 
-        ? -Math.abs(expense.amount) 
-        : expense.amount;
+    const statementType = pdfConfig ? pdfConfig.statementType : null;
 
-      return {
-        ...expense,
-        amount,
-        fileName: file.originalname,
-        appendedDate: today,
-        expenseType: expense.type,
-      };
+    // 4. Filter out inter-account payment transactions
+    const paymentKeywords = [
+      'payment received', 'payment thank you', 'payment towards card', 'credit card payment', 'autodebit payment recd'
+    ];
+    const filteredTransactions = extractedTransactions.filter(t => {
+      if (!t.description || !t.type) return true; // Keep if malformed
+      const description = t.description.toLowerCase();
+      const isPayment = paymentKeywords.some(k => description.includes(k));
+
+      if (statementType === 'credit_card' && t.type.toLowerCase() === 'credit' && isPayment) {
+        console.log(`Ignoring credit card payment: ${t.description}`);
+        return false;
+      }
+      if (statementType === 'bank_statement' && t.type.toLowerCase() === 'debit' && isPayment) {
+        console.log(`Ignoring bank debit for card payment: ${t.description}`);
+        return false;
+      }
+      return true;
     });
 
-    // 4. Append to Google Sheets
-    console.log("Logging expenses to Google Sheets...");
-    await appendExpenses(expensesToLog);
+    // 5. Separate into income and expenses
+    const incomes = [];
+    const expenses = [];
+    if (statementType === 'bank_statement') {
+      filteredTransactions.forEach(t => {
+        if (t.type.toLowerCase() === 'credit') {
+          incomes.push(t);
+        } else {
+          expenses.push(t);
+        }
+      });
+    } else {
+      // For credit cards or unknown types, everything is an expense/refund
+      expenses.push(...filteredTransactions);
+    }
+
+    const today = new Date().toLocaleDateString();
+
+    // 6. Process and log expenses
+    if (expenses.length > 0) {
+      const expensesToLog = expenses.map(expense => {
+        const amount = expense.type && expense.type.toLowerCase() === 'credit' 
+          ? -Math.abs(expense.amount) 
+          : expense.amount;
+
+        return {
+          ...expense,
+          amount,
+          fileName: file.originalname,
+          appendedDate: today,
+          expenseType: expense.type,
+        };
+      });
+      console.log("Logging expenses to Google Sheets...");
+      await appendExpenses(expensesToLog);
+    }
+
+    // 7. Process and log income
+    if (incomes.length > 0) {
+      const incomeToLog = incomes.map(income => ({
+        date: income.date,
+        description: income.description,
+        amount: income.amount,
+        category: income.category,
+        fileName: file.originalname,
+        appendedDate: today,
+      }));
+      console.log("Logging income to Google Sheets...");
+      await appendIncome(incomeToLog);
+    }
     
-    console.log(`Successfully processed and logged expenses for ${file.originalname}.`);
+    console.log(`Successfully processed and logged transactions for ${file.originalname}.`);
+
   } catch (error) {
     // This will catch any unexpected errors during processing
     console.error(`Error in processing PDF attachment for ${file.originalname}:`, error.message);

@@ -36,6 +36,23 @@ async function getCategories() {
   return [];
 }  
 
+async function appendIncome(incomes) {
+  const auth = await getAuthClient();
+  const sheets = google.sheets({ version: 'v4', auth });
+
+  const values = incomes.map(i => [i.date, i.description, i.amount, i.category, i.fileName, i.appendedDate]);
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: process.env.GOOGLE_SHEET_ID,
+    range: 'Income!B:G', // Target Income sheet
+    valueInputOption: 'USER_ENTERED',
+    resource: {
+      values,
+    },
+  });
+  console.log(`${values.length} income transactions appended to Google Sheet.`);
+}
+
 async function appendExpenses(expenses) {
   const auth = await getAuthClient();
   const sheets = google.sheets({ version: 'v4', auth });
@@ -53,4 +70,4 @@ async function appendExpenses(expenses) {
   console.log(`${values.length} expenses appended to Google Sheet.`);
 }
 
-module.exports = { appendExpenses, getCategories };
+module.exports = { appendExpenses, getCategories, appendIncome };
