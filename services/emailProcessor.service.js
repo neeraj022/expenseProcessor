@@ -114,20 +114,16 @@ async function processPdfAttachment(file) {
 
     const statementType = pdfConfig ? pdfConfig.statementType : null;
 
-    // 4. Filter out inter-account payment transactions
-    const paymentKeywords = [
-      'payment received', 'payment thank you', 'payment towards card', 'credit card payment', 'autodebit payment recd'
-    ];
+    // 4. Filter out inter-account payment transactions based on isPayment flag from LLM
     const filteredTransactions = extractedTransactions.filter(t => {
-      if (!t.description || !t.type) return true; // Keep if malformed
-      const description = t.description.toLowerCase();
-      const isPayment = paymentKeywords.some(k => description.includes(k));
+      // The LLM should provide the isPayment flag. Default to false if missing.
+      const isPayment = t.isPayment === true;
 
-      if (statementType === 'credit_card' && t.type.toLowerCase() === 'credit' && isPayment) {
+      if (statementType === 'credit_card' && t.type?.toLowerCase() === 'credit' && isPayment) {
         console.log(`Ignoring credit card payment: ${t.description}`);
         return false;
       }
-      if (statementType === 'bank_statement' && t.type.toLowerCase() === 'debit' && isPayment) {
+      if (statementType === 'bank_statement' && t.type?.toLowerCase() === 'debit' && isPayment) {
         console.log(`Ignoring bank debit for card payment: ${t.description}`);
         return false;
       }
