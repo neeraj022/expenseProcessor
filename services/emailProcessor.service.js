@@ -63,6 +63,7 @@ async function processPdfAttachment(file) {
 
     const pdfParseOptions = {};
     if (pdfConfig && pdfConfig.useColumnLayout) {
+      //amazonPay, iciciCredit, sbiBank, idfcBank, idfcCredit, bobCredit
       console.log('Using column layout for PDF parsing.');
       pdfParseOptions.pagerender = renderPageWithLayout;
     }
