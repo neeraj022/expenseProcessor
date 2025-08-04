@@ -12,6 +12,7 @@ function buildExtractionPrompt(text, categories) {
         On credit card statements, credits can be payments or refunds. Extract both, but correctly identify payments with the "isPayment" flag.
         If a value is not present, use null.
         Sometimes the reward point column is also present next to the amount column, but it should not be considered in the output.
+        Amounts are always in 2 decimal format, e.g., 123.45.
         Amount can't be larger than 1000000.
         Text:
         ---
