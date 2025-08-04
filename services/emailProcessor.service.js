@@ -62,10 +62,16 @@ async function processPdfAttachment(file) {
     const pdfConfig = getConfigForFile(file.originalname);
 
     const pdfParseOptions = {};
-    if (pdfConfig && pdfConfig.useColumnLayout) {
-      //amazonPay, iciciCredit, sbiBank, idfcBank, idfcCredit, bobCredit
-      console.log('Using column layout for PDF parsing.');
-      pdfParseOptions.pagerender = renderPageWithLayout;
+    if (pdfConfig) {
+      if (pdfConfig.useColumnLayout) {
+        //amazonPay, iciciCredit, sbiBank, idfcBank, idfcCredit, bobCredit
+        console.log('Using column layout for PDF parsing.');
+        pdfParseOptions.pagerender = renderPageWithLayout;
+      }
+      if (pdfConfig.pagesToParse > 0) {
+        console.log(`Limiting PDF parsing to first ${pdfConfig.pagesToParse} pages.`);
+        pdfParseOptions.max = pdfConfig.pagesToParse;
+      }
     }
 
     try {
