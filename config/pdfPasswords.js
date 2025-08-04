@@ -15,9 +15,10 @@ module.exports = [
     statementType: 'credit_card',
   },
   {
-    keywords: ['iciciAmazonCreditCard'],
+    keywords: ['iciciAmazonCreditCard', 'amazon'],
     password: process.env.PDF_PASSWORD_CREDIT_ICICI_AMAZON,
     statementType: 'credit_card',
+    useColumnLayout: true,
   },
   {
     keywords: ['iciciBank'],

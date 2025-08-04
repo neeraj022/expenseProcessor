@@ -21,15 +21,55 @@ function getConfigForFile(fileName) {
   return null; // Return null if no config is found
 }
 
+// Custom PDF text renderer to handle multi-column layouts
+async function renderPageWithLayout(pageData) {
+  const round = (val, precision = 2) => parseFloat(val.toFixed(precision));
+
+  try {
+    const content = await pageData.getTextContent();
+    if (!content || !content.items || content.items.length === 0) {
+      return '';
+    }
+
+    // Group text items by y-coordinate to reconstruct lines
+    const lines = content.items.reduce((acc, item) => {
+      const y = round(item.transform[5]);
+      if (!acc[y]) acc[y] = [];
+      acc[y].push(item);
+      return acc;
+    }, {});
+
+    // Sort y-coordinates from top to bottom (descending order)
+    const sortedYCoords = Object.keys(lines).sort((a, b) => b - a);
+
+    // For each line, sort items by x-coordinate (left to right) and join them
+    return sortedYCoords.map(y => {
+      const lineItems = lines[y];
+      lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
+      return lineItems.map(item => item.str).join(' ');
+    }).join('\n');
+
+  } catch (err) {
+    console.error(`Error during page rendering: ${err.message || err}`);
+    return ''; // Return empty string for pages that fail to render
+  }
+}
+
 async function processPdfAttachment(file) {
   try {
     console.log(`Processing PDF attachment: ${file.originalname}`);
     let pdfText;
     const pdfConfig = getConfigForFile(file.originalname);
 
+    const pdfParseOptions = {};
+    if (pdfConfig && pdfConfig.useColumnLayout) {
+      console.log('Using column layout for PDF parsing.');
+      pdfParseOptions.pagerender = renderPageWithLayout;
+    }
+
     try {
       // First attempt: parse without password to handle non-encrypted files
-      const data = await pdfParse(file.buffer);
+      const data = await pdfParse(file.buffer, pdfParseOptions);
       pdfText = data.text;
     } catch (error) {
       // pdf-parse throws error with code 1 for encrypted files
@@ -65,7 +105,7 @@ async function processPdfAttachment(file) {
 
             console.log("PDF decrypted successfully. Parsing text from decrypted buffer...");
             const decryptedBuffer = fs.readFileSync(outputPath);
-            const data = await pdfParse(decryptedBuffer);
+            const data = await pdfParse(decryptedBuffer, pdfParseOptions);
             pdfText = data.text;
 
           } catch (decryptionError) {
