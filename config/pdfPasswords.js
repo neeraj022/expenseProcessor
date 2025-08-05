@@ -4,16 +4,19 @@ module.exports = [
     password: process.env.PDF_PASSWORD_CREDIT_IDFC,
     statementType: 'credit_card',
     pagesToParse: 2,
+    useColumnLayout: true
   },
   {
     keywords: ['idfcBank'],
     password: process.env.PDF_PASSWORD_BANK_IDFC,
     statementType: 'bank_statement',
+    useColumnLayout: true
   },
   {
     keywords: ['iciciRubyxCreditCard'],
     password: process.env.PDF_PASSWORD_CREDIT_ICICI_RUBYX,
     statementType: 'credit_card',
+    useColumnLayout: true,
     pagesToParse: 2,
   },
   {
@@ -32,22 +35,26 @@ module.exports = [
     keywords: ['sbiCreditCard'],
     password: process.env.PDF_PASSWORD_CREDIT_SBI,
     statementType: 'credit_card',
+    useColumnLayout: true,
     pagesToParse: 2,
   },
   {
     keywords: ['sbiBankNeeraj'],
     password: process.env.PDF_PASSWORD_BANK_NEERAJ_SBI,
     statementType: 'bank_statement',
+    useColumnLayout: true
   },
   {
     keywords: ['sbiBank'],
     password: process.env.PDF_PASSWORD_BANK_SBI,
     statementType: 'bank_statement',
+    useColumnLayout: true
   },
   {
     keywords: ['bobCreditCard'],
     password: process.env.PDF_PASSWORD_CREDIT_BOB,
     statementType: 'credit_card',
+    useColumnLayout: true,
     pagesToParse: 3,
   },
 ].filter(p => p.password); // This ensures we only use configs where a password is set in .env
