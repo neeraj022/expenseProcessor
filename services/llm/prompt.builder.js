@@ -24,8 +24,10 @@ function buildExtractionPrompt(text, categories) {
         - Clothing: SHOPPERS STOP, Myntra, Ajio, LIFE STYLE, KUBERAN, ZUDIO, WESTSIDE, ADITYA BIRLA FASHION, MADURA GARMENTS, FEET FASHION, TEMPLE FABRICS, BHARTIYA JALPAN, KUSHALS RETAIL, pantaloons, Trent
 
         "debit" represents money spent or transferred out. "credit" represents money received or returned.
+        The transactions are usually listed chronologically. Bank statements often include a running balance after each transaction. Use this to determine if a transaction is a 'debit' or 'credit'. A 'debit' will decrease the running balance, and a 'credit' will increase it. Even if the text formatting from the PDF is messy and columns are not clearly separated, you can infer the transaction type by observing how the numbers in a row affect what appears to be a running balance.
         Set "isPayment" to true if the transaction is for a credit card bill payment (descriptions might include 'Payment Received, Thank You', 'payment towards card', 'credit card payment', 'Autodebit Payment Recd'), and false for all other transactions like purchases, income, or refunds.
         On bank statements, credits are often income. Income descriptions may include 'RDA Vostro FIR NIUM PTE L', 'dividend', 'Uengage', or 'INDOFAST SWAP EN'.
+        Pay special attention to dividend transactions on bank statements. They are 'credit' transactions, usually for very small amounts, and the description is often followed by a long serial number. When extracting the description for a dividend, do not include this trailing serial number.
         On credit card statements, credits can be payments or refunds. Extract both, but correctly identify payments with the "isPayment" flag.
         If a value is not present, use null.
         Sometimes the reward point column is also present next to the amount column, but it should not be considered in the output.
