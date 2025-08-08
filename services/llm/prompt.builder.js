@@ -7,7 +7,7 @@ function buildExtractionPrompt(text, categories) {
         The "date" must be in "MM-DD-YYYY" format. Date formats like "DD-MM-YYYY" or "YYYY-MM-DD" are not acceptable.
         The "category" MUST be one of the following values: [${validCategories}].
         Here are some categorization hints. These are just guidelines; use your best judgment for other descriptions.
-        - Grocery: swiggy instamart, zepto, grofers, AMAZON.IN - GROCER, Bundl Technologies, LULU VALUE MART, ROLLA HYPER MARKET, Avenue Supermarts, MAX HYPERMARKET, VILLAGE HYPERMARKET
+        - Grocery: swiggy instamart, zepto, grofers, AMAZON.IN - GROCER, Bundl Technologies, LULU VALUE MART, ROLLA HYPER MARKET, Avenue Supermarts, MAX HYPERMARKET, VILLAGE HYPERMARKET, UPI to sujatha param
         - Mobile-internet: RELIANCE JIO INFOCOMM
         - Food-order: Swiggy Limited IN, BUNDL TECHNOLOGIES
         - Holidays: Makemytrip India Pvt, IBIBO GROUP PVT
