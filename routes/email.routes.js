@@ -5,6 +5,11 @@ const emailController = require('../controllers/email.controller');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+router.get('/inbound', (req, res) => {
+  console.log('[ROUTE] /inbound GET health check');
+  res.status(200).json({ status: 'ok', message: 'Service is healthy' });
+});
+
 router.post(
   '/inbound',
   (req, res, next) => {
