@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { getLlmClient } = require('./llm/llm.factory');
-const { appendExpenses, getCategories, appendIncome } = require('./googleSheets.service');
+const { appendExpenses, getCategories, appendIncome, getIncomeCategories } = require('./googleSheets.service');
 const pdfPasswords = require('../config/pdfPasswords');
 
 function getConfigForFile(fileName) {
@@ -143,16 +143,21 @@ async function processPdfAttachment(file) {
 
     // 2. Get categories from Google Sheet
     console.log("Fetching categories from Google Sheet...");
-    const categories = await getCategories();
-    if (!categories || categories.length === 0) {
-      console.log("No categories found in sheet. Aborting.");
+    const expenseCategories = await getCategories();
+    const incomeCategories = await getIncomeCategories();
+    if (!expenseCategories || expenseCategories.length === 0) {
+      console.log("No expense categories found in sheet. Aborting.");
       return;
+    }
+    if (!incomeCategories || incomeCategories.length === 0) {
+        console.log("No income categories found in sheet. Aborting.");
+        return;
     }
 
     // 3. Get LLM client and extract transactions
     console.log("Extracting transactions with LLM...");
     const llmClient = getLlmClient();
-    const extractedTransactions = await llmClient.extractExpensesFromText(pdfText, categories);
+    const extractedTransactions = await llmClient.extractExpensesFromText(pdfText, expenseCategories, incomeCategories);
 
     if (!extractedTransactions || extractedTransactions.length === 0) {
       console.log(`LLM did not find any transactions to log in ${file.originalname}.`);

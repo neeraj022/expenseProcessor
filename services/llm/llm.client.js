@@ -5,7 +5,7 @@ class LLMClient {
     }
   }
 
-  async extractExpensesFromText(text, categories) {
+  async extractExpensesFromText(text, expenseCategories, incomeCategories) {
     throw new Error("Method 'extractExpensesFromText()' must be implemented.");
   }
 }

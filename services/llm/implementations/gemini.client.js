@@ -16,8 +16,8 @@ class GeminiClient extends LLMClient {
       },
     });
   }
-  async extractExpensesFromText(text, categories) {
-    const prompt = buildExtractionPrompt(text, categories);
+  async extractExpensesFromText(text, expenseCategories, incomeCategories) {
+    const prompt = buildExtractionPrompt(text, expenseCategories, incomeCategories);
 
     const result = await this.model.generateContent(prompt);
     const response = await result.response;

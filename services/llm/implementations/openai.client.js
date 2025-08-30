@@ -10,8 +10,8 @@ class OpenAIClient extends LLMClient {
     });
   }
 
-  async extractExpensesFromText(text, categories) {
-    const prompt = buildExtractionPrompt(text, categories);
+  async extractExpensesFromText(text, expenseCategories, incomeCategories) {
+    const prompt = buildExtractionPrompt(text, expenseCategories, incomeCategories);
 
     const response = await this.openai.chat.completions.create({
       model: "gpt-4-1106-preview", // Or any model that supports JSON mode
