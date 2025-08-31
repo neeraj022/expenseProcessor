@@ -57,4 +57,10 @@ module.exports = [
     useColumnLayout: true,
     pagesToParse: 3,
   },
+  {
+    keywords: ['equitasBank'],
+    password: process.env.PDF_PASSWORD_BANK_EQUITAS,
+    statementType: 'bank_statement',
+    useColumnLayout: true
+  },
 ].filter(p => p.password); // This ensures we only use configs where a password is set in .env
