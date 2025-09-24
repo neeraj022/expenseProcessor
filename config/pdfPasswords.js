@@ -3,7 +3,6 @@ module.exports = [
     keywords: ['idfcCreditCard'],
     password: process.env.PDF_PASSWORD_CREDIT_IDFC,
     statementType: 'credit_card',
-    pagesToParse: 2,
     useColumnLayout: true
   },
   {
@@ -24,7 +23,6 @@ module.exports = [
     password: process.env.PDF_PASSWORD_CREDIT_ICICI_AMAZON,
     statementType: 'credit_card',
     useColumnLayout: true,
-    pagesToParse: 2,
   },
   {
     keywords: ['iciciBank'],
@@ -55,7 +53,6 @@ module.exports = [
     password: process.env.PDF_PASSWORD_CREDIT_BOB,
     statementType: 'credit_card',
     useColumnLayout: true,
-    pagesToParse: 3,
   },
   {
     keywords: ['equitasBank'],
