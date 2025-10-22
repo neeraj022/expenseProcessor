@@ -66,7 +66,7 @@ class GeminiClient extends LLMClient {
     const responseText = response.text();
 
     // Log raw response and attempt to extract a clean JSON substring
-    console.log("Raw model response text:", responseText);
+    //console.log("Raw model response text:", responseText);
     const jsonCandidate = this._extractJsonFromText(responseText);
     console.log("Extracted JSON candidate:", jsonCandidate);
 
