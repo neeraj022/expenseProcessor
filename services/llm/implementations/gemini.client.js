@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const genaiModule = require("@google/genai");
 const LLMClient = require('../llm.client');
 const { buildExtractionPrompt } = require("../prompt.builder");
 
@@ -8,7 +8,44 @@ class GeminiClient extends LLMClient {
     if (!process.env.GEMINI_API_KEY) {
       throw new Error("GEMINI_API_KEY is not set in environment variables.");
     }
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    // Robustly instantiate the genAI client regardless of package export shape.
+    const key = process.env.GEMINI_API_KEY;
+    let genAI;
+    const m = genaiModule;
+
+    if (typeof m === 'function') {
+      // try constructor with object first (new GoogleGenAI({apiKey}))
+      try {
+        genAI = new m({ apiKey: key });
+      } catch (err) {
+        // fallback attempts
+        try { genAI = new m(key); } catch (err2) {
+          if (typeof m.createClient === 'function') {
+            genAI = m.createClient({ apiKey: key });
+          } else if (m.default && typeof m.default === 'function') {
+            genAI = new m.default({ apiKey: key });
+          } else {
+            throw new Error("Unable to instantiate @google/genai client from function export.");
+          }
+        }
+      }
+    } else if (m && typeof m.GoogleGenAI === 'function') {
+      genAI = new m.GoogleGenAI({ apiKey: key });
+    } else if (m && typeof m.GenAI === 'function') {
+      // older/alternate export
+      try {
+        genAI = new m.GenAI({ apiKey: key });
+      } catch (e) {
+        genAI = new m.GenAI(key);
+      }
+    } else if (m && typeof m.createClient === 'function') {
+      genAI = m.createClient({ apiKey: key });
+    } else if (m && m.default && typeof m.default === 'function') {
+      genAI = new m.default({ apiKey: key });
+    } else {
+      throw new Error("Unsupported @google/genai export shape; cannot instantiate client. Check package version.");
+    }
 
     // Initialize model selection asynchronously and store the promise so other methods can await it.
     this._initPromise = this._selectModel(genAI).then(modelInstance => {
@@ -28,14 +65,21 @@ class GeminiClient extends LLMClient {
     const response = await result.response;
     const responseText = response.text();
 
+    // Log raw response and attempt to extract a clean JSON substring
+    console.log("Raw model response text:", responseText);
+    const jsonCandidate = this._extractJsonFromText(responseText);
+    console.log("Extracted JSON candidate:", jsonCandidate);
+
     let content;
     try {
-      content = JSON.parse(responseText);
+      content = JSON.parse(jsonCandidate);
     } catch (error) {
       if (error instanceof SyntaxError) {
         console.error("Failed to parse JSON, attempting to repair...", error.message);
-        const repairedJsonText = await this._repairJson(responseText);
-        content = JSON.parse(repairedJsonText);
+        const repairedJsonText = await this._repairJson(jsonCandidate);
+        const sanitized = this._extractJsonFromText(repairedJsonText);
+        console.log("Sanitized repaired JSON:", sanitized);
+        content = JSON.parse(sanitized);
       } else {
         throw error;
       }
@@ -57,71 +101,110 @@ class GeminiClient extends LLMClient {
     return expenses;
   }
 
-  // New helper: list models and pick latest flash model that supports generateContent,
-  // otherwise pick any model that supports generateContent.
+  // Helper: extract JSON substring from a larger string (handles fenced blocks and stray prefix/suffix)
+  _extractJsonFromText(text) {
+    if (!text || typeof text !== 'string') return text;
+    const trimmed = text.trim();
+
+    // 1) Look for fenced code block with optional json language
+    const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fenceMatch && fenceMatch[1]) {
+      return fenceMatch[1].trim();
+    }
+
+    // 2) Find first JSON opening char
+    const start = trimmed.search(/[\{\[]/);
+    if (start === -1) {
+      // no obvious JSON start, return original trimmed text
+      return trimmed;
+    }
+
+    // Scan forward to find the matching closing bracket while ignoring strings and escapes
+    let stack = [];
+    let inString = null;
+    let escape = false;
+    for (let i = start; i < trimmed.length; i++) {
+      const ch = trimmed[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escape = true;
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        if (!inString) {
+          inString = ch;
+        } else if (inString === ch) {
+          inString = null;
+        }
+        continue;
+      }
+      if (inString) continue;
+
+      if (ch === '{' || ch === '[') {
+        stack.push(ch);
+        continue;
+      }
+      if (ch === '}' || ch === ']') {
+        const last = stack.pop();
+        if (!last) continue;
+        const matches = (last === '{' && ch === '}') || (last === '[' && ch === ']');
+        if (!matches) continue;
+        if (stack.length === 0) {
+          // return substring from first opening to this closing
+          return trimmed.slice(start, i + 1).trim();
+        }
+      }
+    }
+
+    // If we didn't find a matching close, return from start to end as fallback
+    return trimmed.slice(start).trim();
+  }
+
+  // New helper: pick model from env or fallback to gemini-2.0-flash.
   async _selectModel(genAI) {
-    console.log("Listing available Generative AI models...");
-    let modelsResp;
-    try {
-      modelsResp = await genAI.listModels();
-    } catch (err) {
-      console.error("Failed to list models from Generative AI API:", err.message || err);
-      throw new Error("Unable to list Generative AI models.");
-    }
+    console.log("Selecting Generative AI model (env override or gemini-2.0-flash fallback)...");
 
-    const models = modelsResp.models || modelsResp; // be resilient to response shape
-    if (!Array.isArray(models) || models.length === 0) {
-      throw new Error("No models returned from listModels()");
-    }
+    const chosenId = process.env.GEMINI_MODEL || 'models/gemini-2.0-flash';
+    console.log("Chosen model for generation:", chosenId, "(override with GEMINI_MODEL)");
 
-    // Normalize model entries and provide helper accessors.
-    const normalized = models.map(m => ({
-      raw: m,
-      id: m.name || m.model || m.id || m.displayName || '',
-      displayName: m.displayName || m.name || m.model || '',
-      supportedMethods: m.supportedMethods || (m.methods ? m.methods : []),
-    }));
-
-    // Filter models that support generateContent
-    const generateCapable = normalized.filter(m => {
-      const methods = (m.supportedMethods || []).map(String);
-      return methods.includes('generateContent') || methods.includes('generate') || methods.includes('generate_text');
-    });
-
-    // Try to pick a "flash" model first
-    const flashCandidates = generateCapable.filter(m => /flash/i.test(m.displayName + m.id));
-    let chosen = null;
-
-    if (flashCandidates.length > 0) {
-      // Prefer the one with the highest version-like suffix in the id (best-effort)
-      flashCandidates.sort((a, b) => {
-        // extract numeric sequences to compare, fallback to string compare
-        const numA = (a.id.match(/(\d+(\.\d+)?)/) || ['0'])[0];
-        const numB = (b.id.match(/(\d+(\.\d+)?)/) || ['0'])[0];
-        return parseFloat(numB) - parseFloat(numA);
+    // Preferred: SDK provides a generative model object
+    if (typeof genAI.getGenerativeModel === 'function') {
+      return genAI.getGenerativeModel({
+        model: chosenId,
+        generationConfig: { response_mime_type: "application/json" },
       });
-      chosen = flashCandidates[0];
-    } else if (generateCapable.length > 0) {
-      // fallback to any generateContent-capable model
-      chosen = generateCapable[0];
     }
 
-    if (!chosen) {
-      console.error("No model supporting generation found. Available models:", normalized.map(m => m.id));
-      throw new Error("No suitable generative model found that supports generateContent.");
+    // Newer shape: ai.models.generateContent({...})
+    if (genAI.models && typeof genAI.models.generateContent === 'function') {
+      return {
+        async generateContent(prompt) {
+          const resp = await genAI.models.generateContent({
+            model: chosenId,
+            contents: prompt,
+          });
+          // Normalize response to { response: { text: () => string } }
+          const textVal = (typeof resp.text === 'function') ? resp.text() : (resp.text ?? (resp.output?.[0]?.content ?? ''));
+          return { response: { text: () => textVal } };
+        }
+      };
     }
 
-    console.log("Selected model for generation:", chosen.id);
+    // Fallback: genAI.generate(...)
+    if (typeof genAI.generate === 'function') {
+      return {
+        async generateContent(prompt) {
+          const resp = await genAI.generate({ model: chosenId, prompt });
+          const textVal = (typeof resp.text === 'function') ? resp.text() : (resp.text ?? (resp.output?.[0]?.content ?? ''));
+          return { response: { text: () => textVal } };
+        }
+      };
+    }
 
-    // Create the generative model instance using the chosen id.
-    const modelInstance = genAI.getGenerativeModel({
-      model: chosen.id,
-      generationConfig: {
-        response_mime_type: "application/json",
-      },
-    });
-
-    return modelInstance;
+    throw new Error("No suitable generation method available on genAI instance.");
   }
 
   async _repairJson(malformedJson) {
@@ -144,8 +227,10 @@ class GeminiClient extends LLMClient {
     const result = await this.model.generateContent(prompt);
     const response = await result.response;
     const repairedJsonText = response.text();
-    console.log("JSON repair attempt finished.");
-    return repairedJsonText;
+    // Sanitize repaired output in case model added fences or surrounding text
+    const sanitized = this._extractJsonFromText(repairedJsonText);
+    console.log("JSON repair attempt finished. Sanitized output:", sanitized);
+    return sanitized;
   }
 }
 

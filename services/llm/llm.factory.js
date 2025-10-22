@@ -2,15 +2,20 @@ const OpenAIClient = require('./implementations/openai.client.js');
 const GeminiClient = require('./implementations/gemini.client.js');
 
 function getLlmClient() {
-  const provider = process.env.LLM_PROVIDER;
+  const providerRaw = process.env.LLM_PROVIDER;
+  if (!providerRaw) {
+    throw new Error("LLM_PROVIDER is not set. Set LLM_PROVIDER to 'openai' or 'gemini'.");
+  }
 
-  switch (provider.toLowerCase()) {
+  const provider = providerRaw.toLowerCase();
+
+  switch (provider) {
     case 'openai':
       return new OpenAIClient();
     case 'gemini':
       return new GeminiClient();
     default:
-      throw new Error(`Unsupported LLM provider: ${provider}`);
+      throw new Error(`Unsupported LLM provider: ${providerRaw}`);
   }
 }
 
