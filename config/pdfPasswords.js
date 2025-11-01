@@ -61,7 +61,7 @@ module.exports = [
     useColumnLayout: true
   },
   {
-    keywords: ['scapiaFederalCreditCard'],
+    keywords: ['scapiaCreditCard'],
     password: process.env.PDF_PASSWORD_CREDIT_SCAPIA_FEDERAL, // no password by default
     statementType: 'credit_card',
     useColumnLayout: true
