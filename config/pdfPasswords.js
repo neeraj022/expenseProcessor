@@ -60,4 +60,10 @@ module.exports = [
     statementType: 'bank_statement',
     useColumnLayout: true
   },
+  {
+    keywords: ['scapiaFederalCreditCard'],
+    password: process.env.PDF_PASSWORD_CREDIT_SCAPIA_FEDERAL, // no password by default
+    statementType: 'credit_card',
+    useColumnLayout: true
+  },
 ].filter(p => p.password); // This ensures we only use configs where a password is set in .env
