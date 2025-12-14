@@ -2,6 +2,7 @@
 // Usage examples (shell):
 //   LLM_PROVIDER=openai OPENAI_API_KEY=... node scripts/test_ai.js
 //   LLM_PROVIDER=gemini GEMINI_API_KEY=... node scripts/test_ai.js
+//   LLM_PROVIDER=claude ANTHROPIC_API_KEY=... node scripts/test_ai.js
 
 require('dotenv').config();
 const { getLlmClient } = require('../services/llm/llm.factory');
@@ -13,7 +14,7 @@ const { getLlmClient } = require('../services/llm/llm.factory');
     if (cliProvider) process.env.LLM_PROVIDER = cliProvider;
 
     if (!process.env.LLM_PROVIDER) {
-      console.error("Set LLM_PROVIDER (openai or gemini).");
+      console.error("Set LLM_PROVIDER (openai, gemini, or claude).");
       process.exit(1);
     }
 
@@ -23,6 +24,9 @@ const { getLlmClient } = require('../services/llm/llm.factory');
     }
     if (process.env.LLM_PROVIDER.toLowerCase() === 'gemini' && !process.env.GEMINI_API_KEY) {
       console.warn("Warning: GEMINI_API_KEY not set.");
+    }
+    if (process.env.LLM_PROVIDER.toLowerCase() === 'claude' && !process.env.ANTHROPIC_API_KEY) {
+      console.warn("Warning: ANTHROPIC_API_KEY not set.");
     }
 
     const client = getLlmClient();
