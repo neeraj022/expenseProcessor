@@ -66,4 +66,10 @@ module.exports = [
     statementType: 'credit_card',
     useColumnLayout: true
   },
+  {
+    keywords: ['hdfcBank'],
+    password: process.env.PDF_PASSWORD_BANK_HDFC,
+    statementType: 'bank_statement',
+    useColumnLayout: true
+  },
 ].filter(p => p.password); // This ensures we only use configs where a password is set in .env
