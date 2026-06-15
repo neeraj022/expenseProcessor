@@ -80,54 +80,71 @@ async function processPdfAttachment(file) {
       pdfText = data.text;
     } catch (error) {
       // pdf-parse throws error with code 1 for encrypted files
-      if (error.code === 1) { 
+      if (error.code === 1) {
         console.log(`PDF ${file.originalname} is encrypted. Attempting to decrypt with qpdf...`);
-        const password = pdfConfig ? String(pdfConfig.password) : null;
+        const passwords = pdfConfig && pdfConfig.password
+          ? (Array.isArray(pdfConfig.password) ? pdfConfig.password : [String(pdfConfig.password)])
+          : [];
 
-        if (password) {
-          let tempDir;
-          try {
-            console.log("Found password, attempting decryption with command-line qpdf...");
-            tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-'));
-            const inputPath = path.join(tempDir, file.originalname);
-            const outputPath = path.join(tempDir, `decrypted-${file.originalname}`);
+        if (passwords.length === 0) {
+          console.error(`PDF ${file.originalname} is encrypted, but no password was found. Skipping.`);
+          return;
+        }
 
-            fs.writeFileSync(inputPath, file.buffer);
+        let tempDir;
+        try {
+          console.log("Found password(s), attempting decryption with command-line qpdf...");
+          tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-'));
+          const inputPath = path.join(tempDir, file.originalname);
+          const outputPath = path.join(tempDir, `decrypted-${file.originalname}`);
 
+          fs.writeFileSync(inputPath, file.buffer);
+
+          let decrypted = false;
+          let lastError = null;
+
+          for (const pwd of passwords) {
             try {
-              // Try qpdf decryption, even if it emits warnings
-              execSync(`qpdf --password=${password} --decrypt "${inputPath}" "${outputPath}"`);
+              console.log(`Trying password variant (hidden) ...`);
+              execSync(`qpdf --password=${pwd} --decrypt "${inputPath}" "${outputPath}"`);
+              decrypted = true;
+              break;
             } catch (error) {
               const stderr = error.stderr?.toString() || '';
               if (error.status === 3 && stderr.includes('WARNING')) {
                 console.warn(`qpdf succeeded with warning: ${stderr}`);
                 if (!fs.existsSync(outputPath)) {
                   console.error(`Decrypted output file not found despite qpdf warning.`);
-                  return;
+                  lastError = error;
+                  continue;
                 }
-              } else {
-                throw error; // Re-throw real errors
+                decrypted = true;
+                break;
               }
-            }
-
-            console.log("PDF decrypted successfully. Parsing text from decrypted buffer...");
-            const decryptedBuffer = fs.readFileSync(outputPath);
-            const data = await pdfParse(decryptedBuffer, pdfParseOptions);
-            pdfText = data.text;
-
-          } catch (decryptionError) {
-            console.error(`Failed to decrypt ${file.originalname} with qpdf CLI.`, decryptionError);
-            return; // Skip file if decryption fails
-          } finally {
-            // Clean up temp files
-            if (tempDir && fs.existsSync(tempDir)) {
-              fs.rmSync(tempDir, { recursive: true, force: true });
-              console.log("Cleaned up temporary files.");
+              lastError = error;
+              console.log('Password attempt failed, trying next if available.');
             }
           }
-        } else {
-          console.error(`PDF ${file.originalname} is encrypted, but no password was found. Skipping.`);
-          return;
+
+          if (!decrypted) {
+            console.error(`Failed to decrypt ${file.originalname} with available passwords.`, lastError);
+            return; // Skip file if decryption fails for all passwords
+          }
+
+          console.log("PDF decrypted successfully. Parsing text from decrypted buffer...");
+          const decryptedBuffer = fs.readFileSync(outputPath);
+          const data = await pdfParse(decryptedBuffer, pdfParseOptions);
+          pdfText = data.text;
+
+        } catch (decryptionError) {
+          console.error(`Failed to decrypt ${file.originalname} with qpdf CLI.`, decryptionError);
+          return; // Skip file if decryption fails
+        } finally {
+          // Clean up temp files
+          if (tempDir && fs.existsSync(tempDir)) {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+            console.log("Cleaned up temporary files.");
+          }
         }
       } else {
         // Some other parsing error
@@ -203,8 +220,8 @@ async function processPdfAttachment(file) {
     // 6. Process and log expenses
     if (expenses.length > 0) {
       const expensesToLog = expenses.map(expense => {
-        const amount = expense.type && expense.type.toLowerCase() === 'credit' 
-          ? -Math.abs(expense.amount) 
+        const amount = expense.type && expense.type.toLowerCase() === 'credit'
+          ? -Math.abs(expense.amount)
           : expense.amount;
 
         return {
@@ -232,7 +249,7 @@ async function processPdfAttachment(file) {
       console.log("Logging income to Google Sheets...");
       await appendIncome(incomeToLog);
     }
-    
+
     console.log(`Successfully processed and logged transactions for ${file.originalname}.`);
 
   } catch (error) {
