@@ -171,10 +171,41 @@ async function processPdfAttachment(file) {
         return;
     }
 
-    // 3. Get LLM client and extract transactions
+    // 3. Get LLM client and extract transactions (with retry on 503/unavailable)
     console.log("Extracting transactions with LLM...");
     const llmClient = getLlmClient();
-    const extractedTransactions = await llmClient.extractExpensesFromText(pdfText, expenseCategories, incomeCategories);
+
+    async function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function extractWithRetries(client, text, expCats, incCats) {
+      const backoffs = [3 * 60 * 1000, 5 * 60 * 1000, 10 * 60 * 1000]; // 3m,5m,10m
+      let attempt = 0;
+      while (true) {
+        try {
+          return await client.extractExpensesFromText(text, expCats, incCats);
+        } catch (err) {
+          const code = err?.error?.code || err?.status || err?.code;
+          const msg = err?.message || JSON.stringify(err || '');
+          const isTransient = code === 503 || String(msg).toUpperCase().includes('UNAVAILABLE') || String(msg).includes('503');
+          if (!isTransient) throw err;
+
+          if (attempt >= backoffs.length) {
+            console.error(`LLM retries exhausted (${backoffs.length}) - last error:`, err);
+            throw err;
+          }
+
+          const wait = backoffs[attempt];
+          console.warn(`LLM returned 503/UNAVAILABLE. Retry #${attempt + 1} in ${Math.round(wait / 60000)} minute(s).`);
+          await sleep(wait);
+          attempt++;
+          continue;
+        }
+      }
+    }
+
+    const extractedTransactions = await extractWithRetries(llmClient, pdfText, expenseCategories, incomeCategories);
 
     if (!extractedTransactions || extractedTransactions.length === 0) {
       console.log(`LLM did not find any transactions to log in ${file.originalname}.`);
