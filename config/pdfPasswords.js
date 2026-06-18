@@ -113,6 +113,12 @@ module.exports = [
     useColumnLayout: true
   },
   {
+    keywords: ['sbmBank'],
+    password: process.env.PDF_PASSWORD_BANK_SBM,
+    statementType: 'bank_statement',
+    useColumnLayout: true
+  },
+  {
     keywords: ['scapiaCreditCard'],
     password: resolveMonthlyEnv('PDF_PASSWORD_CREDIT_SCAPIA_FEDERAL'), // resolves base or month-suffixed env
     statementType: 'credit_card',
