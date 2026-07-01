@@ -14,22 +14,28 @@ function buildExtractionPrompt(text, expenseCategories, incomeCategories) {
         For "credit" transactions on a credit card statement that are payments to the card, set the category to "Credit Card Payment".
 
         Here are some categorization hints. These are just guidelines; use your best judgment for other descriptions.
-        - Grocery: swiggy instamart, zepto, grofers, AMAZON.IN - GROCER, Bundl Technologies, LULU VALUE MART, ROLLA HYPER MARKET, Avenue Supermarts, MAX HYPERMARKET, VILLAGE HYPERMARKET, UPI to sujatha param
-        - Mobile-internet: RELIANCE JIO INFOCOMM
-        - Food-order: Swiggy Limited IN, BUNDL TECHNOLOGIES, Krishna Kuteera, Udupi
-        - Office food: RMS Ventures
+        - Grocery: swiggy instamart, zepto, grofers, AMAZON.IN - GROCER, Bundl Technologies, LULU VALUE MART, ROLLA HYPER MARKET, Avenue Supermarts, MAX HYPERMARKET, VILLAGE HYPERMARKET, UPI to sujatha param, Lulu, Lulu Value Mart, Zepto, Zepto Marketplace, ZeptoNow, Licious, DMart, Star Bazaar, BigBasket
+        - Mobile-internet: RELIANCE JIO INFOCOMM, Airtel
+        - Food-order: Swiggy Limited IN, BUNDL TECHNOLOGIES, Krishna Kuteera, Udupi, Swiggy
+        - Office food: RMS Ventures, Suresha Adiga
         - Holidays: Makemytrip India Pvt, IBIBO GROUP PVT
-        - Insurance: MAX LIFE INSURANCE
+        - Insurance: MAX LIFE INSURANCE, Policy Bazaar
         - Travel: Bangalore Metro Rail
         - Electricity-gas: GAIL Gas
-        - Services: cleaning, cooking, hair cut, urban clap, SALON, Ajimul, BEEGLE, ROJINA, Astrotalk etc
+        - Services: cleaning, cooking, hair cut, urban clap, SALON, Ajimul, BEEGLE, ROJINA, Astrotalk etc, UrbanCompany, Pronto
         - Childcare: School, skating, kids, toy, first cry, ITSY BITSY, SAPNA, HAMLEYS, SAMKAN, TYNIMO, KYDO LAND, LITTLE BOSS, MINISO, FUNCITY
         - Taxi: Uber, Ola, Rapid, Namma Yatra etc
-        - Petrol: Fuel
-        - Subscriptions: NETFLIX, GOOGLE WORKSPACE, apple services
+        - Petrol: Fuel, HPCL
+        - Subscriptions: NETFLIX, GOOGLE WORKSPACE, apple services, Netflix
         - Self-care: LENSKART
         - Entertainment: IDC KITCHEN, MC DONALDS, STERLINGS MAC FAST, EAZYDINER, CHAI POINT, KAKAL KAI RUCHI
         - Clothing: SHOPPERS STOP, Myntra, Ajio, LIFE STYLE, KUBERAN, ZUDIO, WESTSIDE, ADITYA BIRLA FASHION, MADURA GARMENTS, FEET FASHION, TEMPLE FABRICS, BHARTIYA JALPAN, KUSHALS RETAIL, pantaloons, Trent
+
+        For income transactions (credits on bank statements), here are categorization hints:
+        - Dividend: ACH
+        - Interest: Monthly Savings Interest Credit
+        - Job: Salary, Mobile Banking transfer
+        - Side-jobs: Uengage
 
         "debit" represents money spent or transferred out. "credit" represents money received or returned.
 
